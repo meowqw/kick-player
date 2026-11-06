@@ -73,13 +73,24 @@ query="${1:-}"
 
 if [[ -z "$query" ]]; then
   mapfile -t recent < <(grep -v '^[[:space:]]*$' "$HISTORY_FILE" | head -12 || true)
+  CONF="$HISTORY_DIR/config"
+  touch "$CONF"
+  pin_now=0; grep -qx 'PIN=1' "$CONF" && pin_now=1
+  pin_label="All workspaces: $([[ $pin_now == 1 ]] && echo ON || echo OFF) — toggle"
   options=("New channel / URL…")
   if ((${#recent[@]} > 0)); then
     options+=("${recent[@]}")
   fi
+  options+=("$pin_label")
 
   selection="$(pick_from_list "Kick — what to watch?" "${options[@]}")"
   [[ -z "${selection:-}" ]] && exit 0
+
+  if [[ "$selection" == "$pin_label" ]]; then
+    { grep -v '^PIN=' "$CONF" || true; echo "PIN=$((1 - pin_now))"; } >"$CONF.tmp" && mv "$CONF.tmp" "$CONF"
+    notify "Kick" "All workspaces: $([[ $pin_now == 1 ]] && echo OFF || echo ON)"
+    exit 0
+  fi
 
   if [[ "$selection" == "New channel / URL…" ]]; then
     query="$(prompt_text "Kick channel or URL")"

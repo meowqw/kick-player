@@ -6,6 +6,7 @@ Watch [Kick](https://kick.com) live streams and VODs in **mpv** — lighter and 
 - **VOD** → [yt-dlp](https://github.com/yt-dlp/yt-dlp) → mpv  
 - Desktop app with recent history  
 - Remembers VOD position (`save-position-on-quit`)
+- Optional pin to all workspaces (Hyprland): `PIN=1` in `~/.config/kick/config`, `PIN=1 kick xqc`, toggle in the menu, or press `Shift+P` in the player
 
 ## Install
 

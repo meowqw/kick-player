@@ -14,6 +14,23 @@ install -m 0755 "$ROOT/bin/kick" "$BIN_DIR/kick"
 install -m 0755 "$ROOT/bin/kick-gui" "$BIN_DIR/kick-gui"
 install -m 0644 "$ROOT/share/applications/kick.desktop" "$APP_DIR/kick.desktop"
 install -m 0644 "$ROOT/config/mpv-kick.conf" "$MPV_DIR/kick-player.conf"
+mkdir -p "$MPV_DIR/scripts"
+install -m 0644 "$ROOT/config/scripts/kick-pin.lua" "$MPV_DIR/scripts/kick-pin.lua"
+
+# uosc: modern on-screen controls (pure Lua, no daemon). Pinned release, installed once.
+UOSC_VER=5.13.0
+install -D -m 0644 "$ROOT/config/uosc.conf" "$MPV_DIR/script-opts/uosc.conf"
+if [[ ! -d "$MPV_DIR/scripts/uosc" ]]; then
+  tmp=$(mktemp -d)
+  if curl -fsSL -o "$tmp/uosc.zip" "https://github.com/tomasklaen/uosc/releases/download/$UOSC_VER/uosc.zip" \
+    && unzip -q "$tmp/uosc.zip" -d "$tmp/x"; then
+    cp -r "$tmp/x/scripts/uosc" "$MPV_DIR/scripts/" && mkdir -p "$MPV_DIR/fonts" && cp "$tmp/x/fonts/"* "$MPV_DIR/fonts/"
+    echo "Installed uosc $UOSC_VER"
+  else
+    echo "WARN: could not fetch uosc (needs curl+unzip); mpv will have no on-screen controls (osc is off)" >&2
+  fi
+  rm -rf "$tmp"
+fi
 
 # Ensure mpv includes our config (do not clobber an existing mpv.conf)
 MPV_CONF="$MPV_DIR/mpv.conf"

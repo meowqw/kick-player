@@ -2,7 +2,10 @@
 # Watch Kick live (streamlink→mpv) or VOD (mpv+yt-dlp).
 set -euo pipefail
 
+# shellcheck disable=SC1091
+[[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/kick/config" ]] && source "${XDG_CONFIG_HOME:-$HOME/.config}/kick/config"
 QUALITY="${QUALITY:-best}"
+PIN="${PIN:-0}"   # 1 = show window on all workspaces (Hyprland); toggle in-player with `P`
 
 usage() {
   cat <<'EOF'
@@ -34,10 +37,14 @@ if [[ "$url" =~ kick\.com/([^/?]+)\?.*offlineVideo=([^&]+) ]]; then
   url="https://kick.com/${BASH_REMATCH[1]}/videos/${BASH_REMATCH[2]}"
 fi
 
+title="${url#*kick.com/}"; title="${title%%[/?]*}"
+mpv_opts=(--force-window=immediate --force-media-title="$title")
+[[ "$PIN" == 1 ]] && mpv_opts+=(--script-opts-append=kick-pin=yes)
+
 if [[ "$url" == */videos/* ]]; then
   echo "VOD → mpv + yt-dlp"
   echo "$url  [$QUALITY]"
-  exec mpv --force-window=immediate --ytdl-format="$QUALITY" "$url"
+  exec mpv "${mpv_opts[@]}" --ytdl-format="$QUALITY" "$url"
 fi
 
 echo "Live → streamlink → mpv"
@@ -47,4 +54,4 @@ if ! streamlink --stream-url "$url" "$QUALITY" >/dev/null; then
   exit 1
 fi
 
-exec streamlink -p mpv -a "--force-window=immediate -- {playerinput}" "$url" "$QUALITY"
+exec streamlink -p mpv -a "${mpv_opts[*]} -- {playerinput}" "$url" "$QUALITY"
