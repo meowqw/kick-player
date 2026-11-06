@@ -1,0 +1,16 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Kick
+Name[ru]=Kick
+GenericName=Kick Player
+GenericName[ru]=Плеер Kick
+Comment=Watch Kick live streams and VODs in mpv
+Comment[ru]=Смотреть лайвы и VOD Kick в mpv
+Exec=kick-gui %u
+Icon=mpv
+Terminal=false
+Categories=AudioVideo;Player;
+Keywords=kick;stream;mpv;streamlink;vod;
+StartupNotify=false
+StartupWMClass=mpv

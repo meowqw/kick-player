@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Watch Kick live (streamlink→mpv) or VOD (mpv+yt-dlp).
+set -euo pipefail
+
+QUALITY="${QUALITY:-best}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  kick <channel>                 # live, e.g. kick xqc
+  kick <kick-url>                # live or VOD URL
+  QUALITY=720p60 kick <channel>
+
+Examples:
+  kick xqc
+  kick https://kick.com/xqc
+  kick https://kick.com/maddyson/videos/<uuid>
+EOF
+}
+
+[[ $# -lt 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { usage; exit 0; }
+
+arg="$1"
+[[ $# -ge 2 && "$2" != http* ]] && QUALITY="$2"
+
+if [[ "$arg" == http* ]]; then
+  url="$arg"
+else
+  url="https://kick.com/${arg#@}"
+fi
+
+# ?offlineVideo=UUID → /videos/UUID
+if [[ "$url" =~ kick\.com/([^/?]+)\?.*offlineVideo=([^&]+) ]]; then
+  url="https://kick.com/${BASH_REMATCH[1]}/videos/${BASH_REMATCH[2]}"
+fi
+
+if [[ "$url" == */videos/* ]]; then
+  echo "VOD → mpv + yt-dlp"
+  echo "$url  [$QUALITY]"
+  exec mpv --force-window=immediate --ytdl-format="$QUALITY" "$url"
+fi
+
+echo "Live → streamlink → mpv"
+echo "$url  [$QUALITY]"
+if ! streamlink --stream-url "$url" "$QUALITY" >/dev/null; then
+  echo "Stream not found (channel offline?). For VOD use /videos/<uuid> URL." >&2
+  exit 1
+fi
+
+exec streamlink -p mpv -a "--force-window=immediate -- {playerinput}" "$url" "$QUALITY"

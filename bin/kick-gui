@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# GUI launcher for Kick → mpv (streamlink live / yt-dlp VOD).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KICK_BIN="${KICK_BIN:-$ROOT/kick}"
+# After install, prefer ~/.local/bin/kick if present
+[[ -x "${HOME}/.local/bin/kick" ]] && KICK_BIN="${HOME}/.local/bin/kick"
+
+HISTORY_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/kick"
+HISTORY_FILE="$HISTORY_DIR/history"
+mkdir -p "$HISTORY_DIR"
+touch "$HISTORY_FILE"
+
+notify() {
+  command -v notify-send >/dev/null && notify-send -a Kick "$@" || true
+}
+
+remember() {
+  local entry="$1"
+  [[ -z "$entry" ]] && return
+  local tmp
+  tmp=$(mktemp)
+  {
+    echo "$entry"
+    grep -Fvx -- "$entry" "$HISTORY_FILE" 2>/dev/null || true
+  } | head -20 >"$tmp"
+  mv "$tmp" "$HISTORY_FILE"
+}
+
+prompt_text() {
+  local prompt="$1"
+  if command -v omarchy-menu-input >/dev/null; then
+    omarchy-menu-input "$prompt" --width 520 || true
+  elif command -v zenity >/dev/null; then
+    zenity --entry --title="Kick" --text="$prompt" --width=520 2>/dev/null || true
+  elif command -v kdialog >/dev/null; then
+    kdialog --title "Kick" --inputbox "$prompt" 2>/dev/null || true
+  else
+    # Terminal fallback
+    if [[ -t 0 ]]; then
+      read -r -p "$prompt: " reply
+      echo "$reply"
+    else
+      notify "Kick" "Need omarchy-menu, zenity, or a terminal to enter a URL"
+      return 1
+    fi
+  fi
+}
+
+pick_from_list() {
+  local prompt="$1"
+  shift
+  local options=("$@")
+  if command -v omarchy-menu-select >/dev/null; then
+    omarchy-menu-select "$prompt" "${options[@]}" -- --width 520 || true
+  elif command -v zenity >/dev/null; then
+    local list=()
+    local i
+    for i in "${!options[@]}"; do
+      list+=("$i" "${options[$i]}")
+    done
+    local idx
+    idx=$(zenity --list --title="Kick" --text="$prompt" --column="#" --column="Item" --hide-column=1 "${list[@]}" --width=520 --height=400 2>/dev/null || true)
+    [[ -n "${idx:-}" ]] && echo "${options[$idx]}"
+  else
+    # Fall back to free-text prompt
+    prompt_text "$prompt"
+  fi
+}
+
+query="${1:-}"
+
+if [[ -z "$query" ]]; then
+  mapfile -t recent < <(grep -v '^[[:space:]]*$' "$HISTORY_FILE" | head -12 || true)
+  options=("New channel / URL…")
+  if ((${#recent[@]} > 0)); then
+    options+=("${recent[@]}")
+  fi
+
+  selection="$(pick_from_list "Kick — what to watch?" "${options[@]}")"
+  [[ -z "${selection:-}" ]] && exit 0
+
+  if [[ "$selection" == "New channel / URL…" ]]; then
+    query="$(prompt_text "Kick channel or URL")"
+  else
+    query="$selection"
+  fi
+fi
+
+query="$(echo "$query" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+[[ -z "$query" ]] && exit 0
+
+remember "$query"
+export QUALITY="${QUALITY:-best}"
+notify "Kick" "Opening: $query"
+
+log="${TMPDIR:-/tmp}/kick-gui.log"
+if command -v uwsm-app >/dev/null; then
+  uwsm-app -- "$KICK_BIN" "$query" >"$log" 2>&1 &
+else
+  nohup "$KICK_BIN" "$query" >"$log" 2>&1 &
+fi
+
+sleep 2
+if ! pgrep -x mpv >/dev/null && ! pgrep -f '[s]treamlink .*kick' >/dev/null; then
+  err="$(tail -n 20 "$log" 2>/dev/null || true)"
+  notify "Kick — failed" "${err:-See $log}"
+  exit 1
+fi
