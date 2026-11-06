@@ -10,7 +10,7 @@ Watch [Kick](https://kick.com) live streams and VODs in **mpv** — lighter and 
 ## Install
 
 ```bash
-git clone https://github.com/<you>/kick-player.git
+git clone https://github.com/meowqw/kick-player.git
 cd kick-player
 ./install.sh
 ```
